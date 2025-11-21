@@ -14,7 +14,117 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      favorites: {
+        Row: {
+          created_at: string | null
+          dish_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          dish_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          dish_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          city: string
+          created_at: string | null
+          customer_name: string
+          delivered_at: string | null
+          delivery_address: string
+          estimated_delivery_time: string | null
+          id: string
+          items: Json
+          payment_method: string
+          phone: string
+          pincode: string
+          status: string
+          total_amount: number
+          user_id: string
+        }
+        Insert: {
+          city: string
+          created_at?: string | null
+          customer_name: string
+          delivered_at?: string | null
+          delivery_address: string
+          estimated_delivery_time?: string | null
+          id?: string
+          items: Json
+          payment_method?: string
+          phone: string
+          pincode: string
+          status?: string
+          total_amount: number
+          user_id: string
+        }
+        Update: {
+          city?: string
+          created_at?: string | null
+          customer_name?: string
+          delivered_at?: string | null
+          delivery_address?: string
+          estimated_delivery_time?: string | null
+          id?: string
+          items?: Json
+          payment_method?: string
+          phone?: string
+          pincode?: string
+          status?: string
+          total_amount?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          city: string | null
+          created_at: string | null
+          default_address: string | null
+          email: string
+          id: string
+          name: string | null
+          phone: string | null
+          pincode: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          city?: string | null
+          created_at?: string | null
+          default_address?: string | null
+          email: string
+          id: string
+          name?: string | null
+          phone?: string | null
+          pincode?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          city?: string | null
+          created_at?: string | null
+          default_address?: string | null
+          email?: string
+          id?: string
+          name?: string | null
+          phone?: string | null
+          pincode?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
