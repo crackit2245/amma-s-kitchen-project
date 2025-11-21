@@ -17,6 +17,7 @@ import Auth from "./pages/Auth";
 import OrderTracking from "./pages/OrderTracking";
 import OrderHistory from "./pages/OrderHistory";
 import Favorites from "./pages/Favorites";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
                 <Route path="/orders/:orderId" element={<OrderTracking />} />
                 <Route path="/my-orders" element={<OrderHistory />} />
                 <Route path="/favorites" element={<Favorites />} />
+                <Route path="/admin" element={<Admin />} />
               </Route>
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

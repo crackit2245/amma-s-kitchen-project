@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Heart, Menu, User, LogOut, Package, Search } from 'lucide-react';
+import { ShoppingCart, Heart, Menu, User, LogOut, Package, Search, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,7 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 const Header = () => {
   const navigate = useNavigate();
   const { getTotalItems } = useCart();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [favoritesCount, setFavoritesCount] = useState(0);
 
@@ -112,6 +112,15 @@ const Header = () => {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuItem onClick={() => navigate('/admin')}>
+                        <Shield className="mr-2 h-4 w-4" />
+                        Admin Dashboard
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem onClick={() => navigate('/my-orders')}>
                     <Package className="mr-2 h-4 w-4" />
                     My Orders
