@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,23 +11,79 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { addMinutes } from 'date-fns';
 
 const Checkout = () => {
   const navigate = useNavigate();
   const { cart, getTotalPrice, clearCart } = useCart();
+  const { user } = useAuth();
   const [paymentMethod, setPaymentMethod] = useState('cod');
+  const [loading, setLoading] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user?.id)
+      .maybeSingle();
+    setProfile(data);
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Simulate order placement
+    
+    if (!user) {
+      navigate('/auth', { state: { from: { pathname: '/checkout' } } });
+      return;
+    }
+
+    setLoading(true);
+    const formData = new FormData(e.currentTarget);
+    
+    const orderData = {
+      user_id: user.id,
+      items: JSON.stringify(cart) as any,
+      total_amount: getTotalPrice() + 20,
+      delivery_address: formData.get('address') as string,
+      city: formData.get('city') as string,
+      pincode: formData.get('pincode') as string,
+      phone: formData.get('phone') as string,
+      customer_name: formData.get('name') as string,
+      payment_method: paymentMethod,
+      status: 'placed',
+      estimated_delivery_time: addMinutes(new Date(), 45).toISOString(),
+    };
+
+    const { data: order, error } = await supabase
+      .from('orders')
+      .insert([orderData])
+      .select()
+      .single();
+
+    setLoading(false);
+
+    if (error) {
+      toast({
+        title: 'Order Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     toast({
       title: 'Order Placed Successfully! 🎉',
       description: 'Your delicious food will arrive soon with lots of love!',
     });
     clearCart();
-    setTimeout(() => {
-      navigate('/');
-    }, 2000);
+    navigate(`/orders/${order.id}`);
   };
 
   if (cart.length === 0) {
@@ -46,35 +104,74 @@ const Checkout = () => {
                 <CardTitle>Delivery Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {!user && (
+                  <div className="bg-muted p-4 rounded-lg mb-4">
+                    <p className="text-sm mb-2">Have an account? <Button variant="link" className="p-0 h-auto" onClick={() => navigate('/auth')}>Login</Button> to checkout faster!</p>
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="name">Full Name *</Label>
-                  <Input id="name" required placeholder="Enter your name" />
+                  <Input 
+                    id="name" 
+                    name="name"
+                    required 
+                    placeholder="Enter your name"
+                    defaultValue={profile?.name || ''}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="phone">Phone Number *</Label>
-                  <Input id="phone" type="tel" required placeholder="98765 43210" />
+                  <Input 
+                    id="phone" 
+                    name="phone"
+                    type="tel" 
+                    required 
+                    placeholder="98765 43210"
+                    defaultValue={profile?.phone || ''}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="your@email.com" />
+                  <Input 
+                    id="email" 
+                    name="email"
+                    type="email" 
+                    placeholder="your@email.com"
+                    defaultValue={user?.email || ''}
+                    disabled={!!user}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="address">Delivery Address *</Label>
                   <Textarea
                     id="address"
+                    name="address"
                     required
                     placeholder="House no, Street, Landmark"
                     rows={3}
+                    defaultValue={profile?.default_address || ''}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="city">City *</Label>
-                    <Input id="city" required placeholder="Guntur" />
+                    <Input 
+                      id="city" 
+                      name="city"
+                      required 
+                      placeholder="Guntur"
+                      defaultValue={profile?.city || ''}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="pincode">Pincode *</Label>
-                    <Input id="pincode" required placeholder="522001" />
+                    <Input 
+                      id="pincode" 
+                      name="pincode"
+                      required 
+                      placeholder="522001"
+                      defaultValue={profile?.pincode || ''}
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -131,8 +228,13 @@ const Checkout = () => {
                     <span>Total</span>
                     <span className="text-primary">₹{getTotalPrice() + 20}</span>
                   </div>
-                  <Button type="submit" size="lg" className="w-full mt-4 bg-primary hover:bg-primary/90">
-                    Place Order
+                  <Button 
+                    type="submit" 
+                    size="lg" 
+                    className="w-full mt-4 bg-primary hover:bg-primary/90"
+                    disabled={loading}
+                  >
+                    {loading ? 'Placing Order...' : 'Place Order'}
                   </Button>
                 </CardContent>
               </Card>
