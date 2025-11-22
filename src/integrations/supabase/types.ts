@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      delivery_areas: {
+        Row: {
+          area_name: string
+          city: string
+          created_at: string | null
+          delivery_fee: number
+          estimated_delivery_minutes: number
+          id: string
+          is_serviceable: boolean
+          pincode: string
+          updated_at: string | null
+        }
+        Insert: {
+          area_name: string
+          city: string
+          created_at?: string | null
+          delivery_fee?: number
+          estimated_delivery_minutes?: number
+          id?: string
+          is_serviceable?: boolean
+          pincode: string
+          updated_at?: string | null
+        }
+        Update: {
+          area_name?: string
+          city?: string
+          created_at?: string | null
+          delivery_fee?: number
+          estimated_delivery_minutes?: number
+          id?: string
+          is_serviceable?: boolean
+          pincode?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       favorites: {
         Row: {
           created_at: string | null
