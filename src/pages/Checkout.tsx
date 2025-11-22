@@ -19,7 +19,14 @@ const Checkout = () => {
   const { user } = useAuth();
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [loading, setLoading] = useState(false);
-  const [profile, setProfile] = useState<any>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    city: '',
+    pincode: '',
+  });
 
   useEffect(() => {
     if (user) {
@@ -33,7 +40,19 @@ const Checkout = () => {
       .select('*')
       .eq('id', user?.id)
       .maybeSingle();
-    setProfile(data);
+    
+    if (data) {
+      setFormData({
+        name: data.name || '',
+        phone: data.phone || '',
+        email: user?.email || '',
+        address: data.default_address || '',
+        city: data.city || '',
+        pincode: data.pincode || '',
+      });
+    } else if (user) {
+      setFormData(prev => ({ ...prev, email: user.email || '' }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -45,17 +64,16 @@ const Checkout = () => {
     }
 
     setLoading(true);
-    const formData = new FormData(e.currentTarget);
     
     const orderData = {
       user_id: user.id,
       items: JSON.stringify(cart) as any,
       total_amount: getTotalPrice() + 20,
-      delivery_address: formData.get('address') as string,
-      city: formData.get('city') as string,
-      pincode: formData.get('pincode') as string,
-      phone: formData.get('phone') as string,
-      customer_name: formData.get('name') as string,
+      delivery_address: formData.address,
+      city: formData.city,
+      pincode: formData.pincode,
+      phone: formData.phone,
+      customer_name: formData.name,
       payment_method: paymentMethod,
       status: 'placed',
       estimated_delivery_time: addMinutes(new Date(), 45).toISOString(),
@@ -116,7 +134,8 @@ const Checkout = () => {
                     name="name"
                     required 
                     placeholder="Enter your name"
-                    defaultValue={profile?.name || ''}
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   />
                 </div>
                 <div>
@@ -127,7 +146,8 @@ const Checkout = () => {
                     type="tel" 
                     required 
                     placeholder="98765 43210"
-                    defaultValue={profile?.phone || ''}
+                    value={formData.phone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                   />
                 </div>
                 <div>
@@ -137,7 +157,8 @@ const Checkout = () => {
                     name="email"
                     type="email" 
                     placeholder="your@email.com"
-                    defaultValue={user?.email || ''}
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                     disabled={!!user}
                   />
                 </div>
@@ -149,7 +170,8 @@ const Checkout = () => {
                     required
                     placeholder="House no, Street, Landmark"
                     rows={3}
-                    defaultValue={profile?.default_address || ''}
+                    value={formData.address}
+                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -160,7 +182,8 @@ const Checkout = () => {
                       name="city"
                       required 
                       placeholder="Guntur"
-                      defaultValue={profile?.city || ''}
+                      value={formData.city}
+                      onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
                     />
                   </div>
                   <div>
@@ -170,7 +193,8 @@ const Checkout = () => {
                       name="pincode"
                       required 
                       placeholder="522001"
-                      defaultValue={profile?.pincode || ''}
+                      value={formData.pincode}
+                      onChange={(e) => setFormData(prev => ({ ...prev, pincode: e.target.value }))}
                     />
                   </div>
                 </div>
