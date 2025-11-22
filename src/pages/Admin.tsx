@@ -8,8 +8,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
-import { Package, TrendingUp, DollarSign, Users } from 'lucide-react';
+import { Package, TrendingUp, DollarSign, Users, MapPin, Plus, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Order {
@@ -21,6 +25,16 @@ interface Order {
   items: any;
   delivery_address: string;
   phone: string;
+}
+
+interface DeliveryArea {
+  id: string;
+  pincode: string;
+  area_name: string;
+  city: string;
+  delivery_fee: number;
+  estimated_delivery_minutes: number;
+  is_serviceable: boolean;
 }
 
 const statusColors = {
@@ -35,6 +49,7 @@ const statusColors = {
 export default function Admin() {
   const { isAdmin, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [deliveryAreas, setDeliveryAreas] = useState<DeliveryArea[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalOrders: 0,
@@ -42,11 +57,15 @@ export default function Admin() {
     pendingOrders: 0,
     completedOrders: 0,
   });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingArea, setEditingArea] = useState<DeliveryArea | null>(null);
+  const [isServiceable, setIsServiceable] = useState(true);
 
   useEffect(() => {
     if (isAdmin) {
       fetchOrders();
       fetchStats();
+      fetchDeliveryAreas();
     }
   }, [isAdmin]);
 
@@ -103,6 +122,89 @@ export default function Admin() {
       });
       fetchOrders();
       fetchStats();
+    }
+  };
+
+  const fetchDeliveryAreas = async () => {
+    const { data, error } = await supabase
+      .from('delivery_areas')
+      .select('*')
+      .order('city', { ascending: true });
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch delivery areas',
+        variant: 'destructive',
+      });
+    } else {
+      setDeliveryAreas(data || []);
+    }
+  };
+
+  const handleSaveDeliveryArea = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+
+    const areaData = {
+      pincode: formData.get('pincode') as string,
+      area_name: formData.get('area_name') as string,
+      city: formData.get('city') as string,
+      delivery_fee: parseInt(formData.get('delivery_fee') as string),
+      estimated_delivery_minutes: parseInt(formData.get('estimated_delivery_minutes') as string),
+      is_serviceable: isServiceable,
+    };
+
+    let error;
+    if (editingArea) {
+      ({ error } = await supabase
+        .from('delivery_areas')
+        .update(areaData)
+        .eq('id', editingArea.id));
+    } else {
+      ({ error } = await supabase
+        .from('delivery_areas')
+        .insert([areaData]));
+    }
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Success',
+        description: `Delivery area ${editingArea ? 'updated' : 'added'} successfully`,
+      });
+      setDialogOpen(false);
+      setEditingArea(null);
+      setIsServiceable(true);
+      fetchDeliveryAreas();
+    }
+  };
+
+  const handleDeleteDeliveryArea = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this delivery area?')) return;
+
+    const { error } = await supabase
+      .from('delivery_areas')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete delivery area',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Success',
+        description: 'Delivery area deleted successfully',
+      });
+      fetchDeliveryAreas();
     }
   };
 
@@ -166,6 +268,7 @@ export default function Admin() {
       <Tabs defaultValue="orders" className="space-y-4">
         <TabsList>
           <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="delivery">Delivery Areas</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -232,6 +335,168 @@ export default function Admin() {
                                 <SelectItem value="cancelled">Cancelled</SelectItem>
                               </SelectContent>
                             </Select>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="delivery" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Delivery Areas</CardTitle>
+                <CardDescription>Manage serviceable pincodes and delivery fees</CardDescription>
+              </div>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => {
+                    setEditingArea(null);
+                    setIsServiceable(true);
+                  }}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Area
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <form onSubmit={handleSaveDeliveryArea}>
+                    <DialogHeader>
+                      <DialogTitle>{editingArea ? 'Edit' : 'Add'} Delivery Area</DialogTitle>
+                      <DialogDescription>
+                        Configure pincode, delivery fee, and estimated delivery time
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="pincode">Pincode *</Label>
+                        <Input
+                          id="pincode"
+                          name="pincode"
+                          required
+                          maxLength={6}
+                          pattern="[0-9]{6}"
+                          defaultValue={editingArea?.pincode || ''}
+                          placeholder="500001"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="area_name">Area Name *</Label>
+                        <Input
+                          id="area_name"
+                          name="area_name"
+                          required
+                          defaultValue={editingArea?.area_name || ''}
+                          placeholder="Abids"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="city">City *</Label>
+                        <Input
+                          id="city"
+                          name="city"
+                          required
+                          defaultValue={editingArea?.city || ''}
+                          placeholder="Hyderabad"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="delivery_fee">Delivery Fee (₹) *</Label>
+                        <Input
+                          id="delivery_fee"
+                          name="delivery_fee"
+                          type="number"
+                          min="0"
+                          required
+                          defaultValue={editingArea?.delivery_fee || 0}
+                          placeholder="30"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="estimated_delivery_minutes">Estimated Delivery (minutes) *</Label>
+                        <Input
+                          id="estimated_delivery_minutes"
+                          name="estimated_delivery_minutes"
+                          type="number"
+                          min="1"
+                          required
+                          defaultValue={editingArea?.estimated_delivery_minutes || 45}
+                          placeholder="45"
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="is_serviceable"
+                          checked={isServiceable}
+                          onCheckedChange={setIsServiceable}
+                        />
+                        <Label htmlFor="is_serviceable">Serviceable Area</Label>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button type="submit">{editingArea ? 'Update' : 'Add'} Area</Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent>
+              {deliveryAreas.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">No delivery areas configured</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Pincode</TableHead>
+                        <TableHead>Area</TableHead>
+                        <TableHead>City</TableHead>
+                        <TableHead>Delivery Fee</TableHead>
+                        <TableHead>Est. Time</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {deliveryAreas.map((area) => (
+                        <TableRow key={area.id}>
+                          <TableCell className="font-mono">{area.pincode}</TableCell>
+                          <TableCell>{area.area_name}</TableCell>
+                          <TableCell>{area.city}</TableCell>
+                          <TableCell className="font-semibold">
+                            {area.delivery_fee === 0 ? 'FREE' : `₹${area.delivery_fee}`}
+                          </TableCell>
+                          <TableCell>{area.estimated_delivery_minutes} min</TableCell>
+                          <TableCell>
+                            <Badge variant={area.is_serviceable ? 'default' : 'destructive'}>
+                              {area.is_serviceable ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  setEditingArea(area);
+                                  setIsServiceable(area.is_serviceable);
+                                  setDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleDeleteDeliveryArea(area.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
