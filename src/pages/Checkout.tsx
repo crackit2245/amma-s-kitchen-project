@@ -12,17 +12,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { addMinutes } from 'date-fns';
-import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-
-interface DeliveryArea {
-  pincode: string;
-  area_name: string;
-  city: string;
-  delivery_fee: number;
-  estimated_delivery_minutes: number;
-  is_serviceable: boolean;
-}
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -31,9 +20,6 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState('cod');
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
-  const [deliveryArea, setDeliveryArea] = useState<DeliveryArea | null>(null);
-  const [pincodeChecking, setPincodeChecking] = useState(false);
-  const [pincodeError, setPincodeError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -48,55 +34,6 @@ const Checkout = () => {
       .eq('id', user?.id)
       .maybeSingle();
     setProfile(data);
-    
-    // Check pincode if profile has one
-    if (data?.pincode) {
-      checkPincode(data.pincode);
-    }
-  };
-
-  const checkPincode = async (pincode: string) => {
-    if (!pincode || pincode.length !== 6) {
-      setPincodeError(null);
-      setDeliveryArea(null);
-      return;
-    }
-
-    setPincodeChecking(true);
-    setPincodeError(null);
-
-    const { data, error } = await supabase
-      .from('delivery_areas')
-      .select('*')
-      .eq('pincode', pincode)
-      .maybeSingle();
-
-    setPincodeChecking(false);
-
-    if (error || !data) {
-      setPincodeError('Sorry, we don\'t deliver to this pincode yet.');
-      setDeliveryArea(null);
-      return;
-    }
-
-    if (!data.is_serviceable) {
-      setPincodeError('Sorry, delivery is currently unavailable in this area.');
-      setDeliveryArea(null);
-      return;
-    }
-
-    setDeliveryArea(data as DeliveryArea);
-    setPincodeError(null);
-  };
-
-  const handlePincodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const pincode = e.target.value;
-    if (pincode.length === 6) {
-      checkPincode(pincode);
-    } else {
-      setDeliveryArea(null);
-      setPincodeError(null);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -107,24 +44,13 @@ const Checkout = () => {
       return;
     }
 
-    if (!deliveryArea) {
-      toast({
-        title: 'Invalid Pincode',
-        description: 'Please enter a valid serviceable pincode.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setLoading(true);
     const formData = new FormData(e.currentTarget);
-    const deliveryFee = deliveryArea.delivery_fee;
-    const packagingFee = 20;
     
     const orderData = {
       user_id: user.id,
       items: JSON.stringify(cart) as any,
-      total_amount: getTotalPrice() + deliveryFee + packagingFee,
+      total_amount: getTotalPrice() + 20,
       delivery_address: formData.get('address') as string,
       city: formData.get('city') as string,
       pincode: formData.get('pincode') as string,
@@ -132,7 +58,7 @@ const Checkout = () => {
       customer_name: formData.get('name') as string,
       payment_method: paymentMethod,
       status: 'placed',
-      estimated_delivery_time: addMinutes(new Date(), deliveryArea.estimated_delivery_minutes).toISOString(),
+      estimated_delivery_time: addMinutes(new Date(), 45).toISOString(),
     };
 
     const { data: order, error } = await supabase
@@ -233,52 +159,21 @@ const Checkout = () => {
                       id="city" 
                       name="city"
                       required 
-                      placeholder="Hyderabad"
+                      placeholder="Guntur"
                       defaultValue={profile?.city || ''}
-                      value={deliveryArea?.city || profile?.city || ''}
-                      readOnly={!!deliveryArea}
                     />
                   </div>
                   <div>
                     <Label htmlFor="pincode">Pincode *</Label>
-                    <div className="relative">
-                      <Input 
-                        id="pincode" 
-                        name="pincode"
-                        required 
-                        placeholder="500001"
-                        defaultValue={profile?.pincode || ''}
-                        onChange={handlePincodeChange}
-                        maxLength={6}
-                        pattern="[0-9]{6}"
-                      />
-                      {pincodeChecking && (
-                        <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
-                      )}
-                    </div>
+                    <Input 
+                      id="pincode" 
+                      name="pincode"
+                      required 
+                      placeholder="522001"
+                      defaultValue={profile?.pincode || ''}
+                    />
                   </div>
                 </div>
-                
-                {/* Pincode Validation Feedback */}
-                {pincodeError && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{pincodeError}</AlertDescription>
-                  </Alert>
-                )}
-                
-                {deliveryArea && !pincodeError && (
-                  <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-700 dark:text-green-300">
-                      Great! We deliver to {deliveryArea.area_name}, {deliveryArea.city}
-                      <br />
-                      <span className="text-sm">
-                        Estimated delivery: {deliveryArea.estimated_delivery_minutes} minutes
-                      </span>
-                    </AlertDescription>
-                  </Alert>
-                )}
               </CardContent>
             </Card>
 
@@ -322,9 +217,7 @@ const Checkout = () => {
                   <Separator />
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>Delivery Fee</span>
-                    <span className={deliveryArea?.delivery_fee === 0 ? "text-primary" : ""}>
-                      {deliveryArea ? (deliveryArea.delivery_fee === 0 ? 'FREE' : `₹${deliveryArea.delivery_fee}`) : '₹0'}
-                    </span>
+                    <span className="text-primary">FREE</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>Packaging</span>
@@ -333,28 +226,16 @@ const Checkout = () => {
                   <Separator />
                   <div className="flex justify-between text-xl font-bold">
                     <span>Total</span>
-                    <span className="text-primary">
-                      ₹{getTotalPrice() + (deliveryArea?.delivery_fee || 0) + 20}
-                    </span>
+                    <span className="text-primary">₹{getTotalPrice() + 20}</span>
                   </div>
-                  {deliveryArea && (
-                    <p className="text-xs text-muted-foreground text-center mt-2">
-                      Estimated delivery: {deliveryArea.estimated_delivery_minutes} minutes
-                    </p>
-                  )}
                   <Button 
                     type="submit" 
                     size="lg" 
                     className="w-full mt-4 bg-primary hover:bg-primary/90"
-                    disabled={loading || !deliveryArea || !!pincodeError}
+                    disabled={loading}
                   >
                     {loading ? 'Placing Order...' : 'Place Order'}
                   </Button>
-                  {!deliveryArea && !pincodeChecking && (
-                    <p className="text-xs text-muted-foreground text-center mt-2">
-                      Enter a valid pincode to proceed
-                    </p>
-                  )}
                 </CardContent>
               </Card>
             </div>
