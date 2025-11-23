@@ -64,7 +64,12 @@ export default function Admin() {
         variant: 'destructive',
       });
     } else {
-      setOrders(data || []);
+      // Parse items if stored as JSON string
+      const parsedOrders = (data || []).map(order => ({
+        ...order,
+        items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items
+      }));
+      setOrders(parsedOrders);
     }
     setLoading(false);
   };

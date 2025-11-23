@@ -20,10 +20,13 @@ const Favorites = () => {
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth', { state: { from: { pathname: '/favorites' } } });
-    } else if (user) {
+      return;
+    }
+    
+    if (user) {
       fetchFavorites();
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading]);
 
   const fetchFavorites = async () => {
     const { data, error } = await supabase
