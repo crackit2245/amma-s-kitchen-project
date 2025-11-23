@@ -23,49 +23,49 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
 
+  // Helper function to check admin status
+  const checkAdminStatus = async (userId: string) => {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .maybeSingle();
+    
+    setIsAdmin(!!data);
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        setLoading(false);
         
-        // Check if user is admin
+        // Defer admin check to avoid deadlock
         if (session?.user) {
-          const { data } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', session.user.id)
-            .eq('role', 'admin')
-            .maybeSingle();
-          
-          setIsAdmin(!!data);
+          setTimeout(() => {
+            checkAdminStatus(session.user.id);
+          }, 0);
         } else {
           setIsAdmin(false);
         }
-        
-        setLoading(false);
       }
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
-      // Check if user is admin
-      if (session?.user) {
-        const { data } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', session.user.id)
-          .eq('role', 'admin')
-          .maybeSingle();
-        
-        setIsAdmin(!!data);
-      }
-      
       setLoading(false);
+      
+      // Defer admin check to avoid deadlock
+      if (session?.user) {
+        setTimeout(() => {
+          checkAdminStatus(session.user.id);
+        }, 0);
+      }
     });
 
     return () => subscription.unsubscribe();

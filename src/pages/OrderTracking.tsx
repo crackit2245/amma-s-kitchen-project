@@ -38,12 +38,17 @@ const OrderTracking = () => {
       .from('orders')
       .select('*')
       .eq('id', orderId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching order:', error);
-    } else {
-      setOrder(data as any);
+    } else if (data) {
+      // Parse items if stored as JSON string
+      const parsedOrder = {
+        ...data,
+        items: typeof data.items === 'string' ? JSON.parse(data.items) : data.items
+      };
+      setOrder(parsedOrder as any);
     }
     setLoading(false);
   };

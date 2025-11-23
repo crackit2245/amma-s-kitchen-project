@@ -26,10 +26,13 @@ const OrderHistory = () => {
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth', { state: { from: { pathname: '/my-orders' } } });
-    } else if (user) {
+      return;
+    }
+    
+    if (user) {
       fetchOrders();
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading]);
 
   const fetchOrders = async () => {
     const { data, error } = await supabase
@@ -40,7 +43,12 @@ const OrderHistory = () => {
     if (error) {
       console.error('Error fetching orders:', error);
     } else {
-      setOrders(data || []);
+      // Parse items if stored as JSON string
+      const parsedOrders = (data || []).map(order => ({
+        ...order,
+        items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items
+      }));
+      setOrders(parsedOrders);
     }
     setLoading(false);
   };
