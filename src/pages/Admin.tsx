@@ -8,8 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { Package, TrendingUp, DollarSign, Users } from 'lucide-react';
+import { Package, TrendingUp, DollarSign, Users, MapPin, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Order {
@@ -32,21 +35,41 @@ const statusColors = {
   cancelled: 'bg-red-500',
 };
 
+interface DeliveryArea {
+  id: string;
+  area_name: string;
+  city: string;
+  pincode: string;
+  delivery_fee: number;
+  estimated_delivery_minutes: number;
+  is_serviceable: boolean;
+}
+
 export default function Admin() {
   const { isAdmin, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [deliveryAreas, setDeliveryAreas] = useState<DeliveryArea[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalRevenue: 0,
     pendingOrders: 0,
     completedOrders: 0,
   });
+  const [newArea, setNewArea] = useState({
+    area_name: '',
+    city: '',
+    pincode: '',
+    delivery_fee: 0,
+    estimated_delivery_minutes: 45,
+  });
 
   useEffect(() => {
     if (isAdmin) {
       fetchOrders();
       fetchStats();
+      fetchDeliveryAreas();
     }
   }, [isAdmin]);
 
@@ -89,6 +112,23 @@ export default function Admin() {
     }
   };
 
+  const fetchDeliveryAreas = async () => {
+    const { data, error } = await supabase
+      .from('delivery_areas')
+      .select('*')
+      .order('city', { ascending: true });
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch delivery areas',
+        variant: 'destructive',
+      });
+    } else {
+      setDeliveryAreas(data || []);
+    }
+  };
+
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     const { error } = await supabase
       .from('orders')
@@ -110,6 +150,69 @@ export default function Admin() {
       fetchStats();
     }
   };
+
+  const addDeliveryArea = async () => {
+    if (!newArea.area_name || !newArea.city || !newArea.pincode) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all required fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from('delivery_areas')
+      .insert([newArea]);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to add delivery area',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Success',
+        description: 'Delivery area added successfully',
+      });
+      setNewArea({
+        area_name: '',
+        city: '',
+        pincode: '',
+        delivery_fee: 0,
+        estimated_delivery_minutes: 45,
+      });
+      fetchDeliveryAreas();
+    }
+  };
+
+  const deleteDeliveryArea = async (id: string) => {
+    const { error } = await supabase
+      .from('delivery_areas')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete delivery area',
+        variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'Success',
+        description: 'Delivery area deleted successfully',
+      });
+      fetchDeliveryAreas();
+    }
+  };
+
+  const filteredOrders = orders.filter((order) =>
+    order.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    order.phone.includes(searchQuery) ||
+    order.id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (authLoading) {
     return (
@@ -171,20 +274,33 @@ export default function Admin() {
       <Tabs defaultValue="orders" className="space-y-4">
         <TabsList>
           <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="delivery">Delivery Areas</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Order Management</CardTitle>
-              <CardDescription>View and manage all customer orders</CardDescription>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle>Order Management</CardTitle>
+                  <CardDescription>View and manage all customer orders</CardDescription>
+                </div>
+                <Input
+                  placeholder="Search by customer, phone, or order ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="md:w-[300px]"
+                />
+              </div>
             </CardHeader>
             <CardContent>
               {loading ? (
                 <div className="text-center py-8">Loading orders...</div>
-              ) : orders.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">No orders yet</div>
+              ) : filteredOrders.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {searchQuery ? 'No orders match your search' : 'No orders yet'}
+                </div>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
@@ -201,7 +317,7 @@ export default function Admin() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {orders.map((order) => (
+                      {filteredOrders.map((order) => (
                         <TableRow key={order.id}>
                           <TableCell className="font-mono text-xs">
                             {order.id.slice(0, 8)}...
@@ -237,6 +353,139 @@ export default function Admin() {
                                 <SelectItem value="cancelled">Cancelled</SelectItem>
                               </SelectContent>
                             </Select>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="delivery" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="w-5 h-5" />
+                    Delivery Areas
+                  </CardTitle>
+                  <CardDescription>Manage serviceable areas and delivery fees</CardDescription>
+                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Area
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add Delivery Area</DialogTitle>
+                      <DialogDescription>Add a new serviceable delivery area</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="area_name">Area Name</Label>
+                        <Input
+                          id="area_name"
+                          value={newArea.area_name}
+                          onChange={(e) => setNewArea({ ...newArea, area_name: e.target.value })}
+                          placeholder="e.g., Kondapur"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="city">City</Label>
+                          <Input
+                            id="city"
+                            value={newArea.city}
+                            onChange={(e) => setNewArea({ ...newArea, city: e.target.value })}
+                            placeholder="e.g., Hyderabad"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="pincode">Pincode</Label>
+                          <Input
+                            id="pincode"
+                            value={newArea.pincode}
+                            onChange={(e) => setNewArea({ ...newArea, pincode: e.target.value })}
+                            placeholder="e.g., 500084"
+                            maxLength={6}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="delivery_fee">Delivery Fee (₹)</Label>
+                          <Input
+                            id="delivery_fee"
+                            type="number"
+                            value={newArea.delivery_fee}
+                            onChange={(e) => setNewArea({ ...newArea, delivery_fee: parseInt(e.target.value) || 0 })}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="delivery_time">Est. Delivery (mins)</Label>
+                          <Input
+                            id="delivery_time"
+                            type="number"
+                            value={newArea.estimated_delivery_minutes}
+                            onChange={(e) => setNewArea({ ...newArea, estimated_delivery_minutes: parseInt(e.target.value) || 45 })}
+                            placeholder="45"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={addDeliveryArea}>Add Area</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {deliveryAreas.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">No delivery areas configured</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Area Name</TableHead>
+                        <TableHead>City</TableHead>
+                        <TableHead>Pincode</TableHead>
+                        <TableHead>Delivery Fee</TableHead>
+                        <TableHead>Est. Delivery</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {deliveryAreas.map((area) => (
+                        <TableRow key={area.id}>
+                          <TableCell className="font-medium">{area.area_name}</TableCell>
+                          <TableCell>{area.city}</TableCell>
+                          <TableCell>{area.pincode}</TableCell>
+                          <TableCell>₹{area.delivery_fee}</TableCell>
+                          <TableCell>{area.estimated_delivery_minutes} mins</TableCell>
+                          <TableCell>
+                            <Badge variant={area.is_serviceable ? 'default' : 'secondary'}>
+                              {area.is_serviceable ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteDeliveryArea(area.id)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
