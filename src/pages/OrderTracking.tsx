@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle2, Clock, Truck, Package, Home } from 'lucide-react';
+import { CheckCircle2, Clock, Truck, Package, Home, Bell } from 'lucide-react';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 interface Order {
   id: string;
@@ -23,11 +24,54 @@ interface Order {
   estimated_delivery_time: string | null;
 }
 
+const statusMessages: Record<string, string> = {
+  placed: 'Your order has been placed!',
+  preparing: 'Your order is being prepared!',
+  out_for_delivery: 'Your order is out for delivery!',
+  delivered: 'Your order has been delivered!',
+  cancelled: 'Your order has been cancelled.',
+};
+
 const OrderTracking = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+  const previousStatusRef = useRef<string | null>(null);
+
+  const playNotificationSound = useCallback(() => {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.4);
+  }, []);
+
+  const showStatusNotification = useCallback((newStatus: string) => {
+    playNotificationSound();
+    toast({
+      title: (
+        <div className="flex items-center gap-2">
+          <Bell className="h-4 w-4" />
+          <span>Order Status Updated</span>
+        </div>
+      ) as any,
+      description: statusMessages[newStatus] || `Status changed to ${newStatus.replace('_', ' ')}`,
+      duration: 5000,
+    });
+  }, [playNotificationSound, toast]);
 
   useEffect(() => {
     fetchOrder();
@@ -46,6 +90,14 @@ const OrderTracking = () => {
         (payload) => {
           console.log('Order updated:', payload);
           const updatedData = payload.new as any;
+          const newStatus = updatedData.status;
+          
+          // Check if status changed and show notification
+          if (previousStatusRef.current && previousStatusRef.current !== newStatus) {
+            showStatusNotification(newStatus);
+          }
+          previousStatusRef.current = newStatus;
+          
           setOrder(prev => prev ? {
             ...prev,
             ...updatedData,
@@ -58,7 +110,7 @@ const OrderTracking = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [orderId]);
+  }, [orderId, showStatusNotification]);
 
   const fetchOrder = async () => {
     const { data, error } = await supabase
@@ -76,6 +128,8 @@ const OrderTracking = () => {
         items: typeof data.items === 'string' ? JSON.parse(data.items) : data.items
       };
       setOrder(parsedOrder as any);
+      // Set initial status reference
+      previousStatusRef.current = data.status;
     }
     setLoading(false);
   };
