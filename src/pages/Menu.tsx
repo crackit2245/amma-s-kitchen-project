@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import DishCard from '@/components/DishCard';
-import { dishes, categories } from '@/data/dishes';
+import { categories } from '@/data/dishes';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -14,8 +15,42 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+interface MenuItem {
+  id: string;
+  name: string;
+  telugu: string | null;
+  description: string | null;
+  price: number;
+  category: string;
+  region: string;
+  type: string;
+  image_url: string | null;
+  ingredients: string[];
+  nutrition: { calories: number; protein: string; carbs: string } | null;
+  is_available: boolean;
+  is_popular: boolean;
+}
+
+// Transform database item to dish format for DishCard
+const transformToDish = (item: MenuItem) => ({
+  id: item.id,
+  name: item.name,
+  telugu: item.telugu || '',
+  description: item.description || '',
+  price: item.price,
+  category: item.category as 'meals' | 'curries' | 'pickles' | 'tiffins' | 'sweets',
+  region: item.region as 'andhra' | 'telangana' | 'both',
+  type: item.type as 'veg' | 'nonveg',
+  image: item.image_url || '/placeholder.svg',
+  popular: item.is_popular,
+  ingredients: item.ingredients || [],
+  nutrition: item.nutrition || { calories: 0, protein: '0g', carbs: '0g' },
+});
+
 const Menu = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -29,14 +64,39 @@ const Menu = () => {
     }
   }, [searchParams]);
 
-  const filteredDishes = dishes.filter((dish) => {
-    const categoryMatch = selectedCategory === 'all' || dish.category === selectedCategory;
-    const regionMatch = selectedRegion === 'all' || dish.region === selectedRegion || dish.region === 'both';
-    const typeMatch = selectedType === 'all' || dish.type === selectedType;
+  useEffect(() => {
+    fetchMenuItems();
+  }, []);
+
+  const fetchMenuItems = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('menu_items')
+      .select('*')
+      .eq('is_available', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching menu items:', error);
+    } else {
+      const items = (data || []).map(item => ({
+        ...item,
+        ingredients: Array.isArray(item.ingredients) ? (item.ingredients as string[]) : [],
+        nutrition: item.nutrition as MenuItem['nutrition'],
+      }));
+      setMenuItems(items);
+    }
+    setLoading(false);
+  };
+
+  const filteredDishes = menuItems.filter((item) => {
+    const categoryMatch = selectedCategory === 'all' || item.category === selectedCategory;
+    const regionMatch = selectedRegion === 'all' || item.region === selectedRegion || item.region === 'both';
+    const typeMatch = selectedType === 'all' || item.type === selectedType;
     const searchMatch = searchQuery === '' || 
-      dish.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      dish.telugu.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      dish.description.toLowerCase().includes(searchQuery.toLowerCase());
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.telugu && item.telugu.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
     return categoryMatch && regionMatch && typeMatch && searchMatch;
   });
 
@@ -50,9 +110,17 @@ const Menu = () => {
         return a.name.localeCompare(b.name);
       case 'popular':
       default:
-        return (b.popular ? 1 : 0) - (a.popular ? 1 : 0);
+        return (b.is_popular ? 1 : 0) - (a.is_popular ? 1 : 0);
     }
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-8">
@@ -170,8 +238,8 @@ const Menu = () => {
               Showing {sortedDishes.length} dish{sortedDishes.length !== 1 ? 'es' : ''}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {sortedDishes.map((dish) => (
-                <DishCard key={dish.id} dish={dish} />
+              {sortedDishes.map((item) => (
+                <DishCard key={item.id} dish={transformToDish(item)} />
               ))}
             </div>
           </>

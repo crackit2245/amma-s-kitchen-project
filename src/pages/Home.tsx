@@ -1,13 +1,69 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Heart, ChefHat, Clock } from 'lucide-react';
 import CategoryCard from '@/components/CategoryCard';
 import DishCard from '@/components/DishCard';
-import { categories, dishes } from '@/data/dishes';
+import { categories } from '@/data/dishes';
 import heroImage from '@/assets/hero-cooking.jpg';
 
+interface MenuItem {
+  id: string;
+  name: string;
+  telugu: string | null;
+  description: string | null;
+  price: number;
+  category: string;
+  region: string;
+  type: string;
+  image_url: string | null;
+  ingredients: string[];
+  nutrition: { calories: number; protein: string; carbs: string } | null;
+  is_available: boolean;
+  is_popular: boolean;
+}
+
+// Transform database item to dish format for DishCard
+const transformToDish = (item: MenuItem) => ({
+  id: item.id,
+  name: item.name,
+  telugu: item.telugu || '',
+  description: item.description || '',
+  price: item.price,
+  category: item.category as 'meals' | 'curries' | 'pickles' | 'tiffins' | 'sweets',
+  region: item.region as 'andhra' | 'telangana' | 'both',
+  type: item.type as 'veg' | 'nonveg',
+  image: item.image_url || '/placeholder.svg',
+  popular: item.is_popular,
+  ingredients: item.ingredients || [],
+  nutrition: item.nutrition || { calories: 0, protein: '0g', carbs: '0g' },
+});
+
 const Home = () => {
-  const popularDishes = dishes.filter((dish) => dish.popular);
+  const [popularDishes, setPopularDishes] = useState<MenuItem[]>([]);
+
+  useEffect(() => {
+    fetchPopularDishes();
+  }, []);
+
+  const fetchPopularDishes = async () => {
+    const { data, error } = await supabase
+      .from('menu_items')
+      .select('*')
+      .eq('is_available', true)
+      .eq('is_popular', true)
+      .limit(4);
+
+    if (!error && data) {
+      const items = data.map(item => ({
+        ...item,
+        ingredients: Array.isArray(item.ingredients) ? (item.ingredients as string[]) : [],
+        nutrition: item.nutrition as MenuItem['nutrition'],
+      }));
+      setPopularDishes(items);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -69,8 +125,8 @@ const Home = () => {
             <p className="text-muted-foreground">Customer favorites made with love</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {popularDishes.map((dish) => (
-              <DishCard key={dish.id} dish={dish} />
+            {popularDishes.map((item) => (
+              <DishCard key={item.id} dish={transformToDish(item)} />
             ))}
           </div>
           <div className="text-center mt-8">

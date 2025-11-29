@@ -73,11 +73,6 @@ const Auth = () => {
 
             <TabsContent value="login">
               <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="bg-muted/50 p-3 rounded-lg mb-4 text-xs">
-                  <p className="font-semibold mb-1">Admin Login:</p>
-                  <p>Username: <code className="bg-background px-1 rounded">admin</code></p>
-                  <p>Password: <code className="bg-background px-1 rounded">amma123@admin</code></p>
-                </div>
                 <div>
                   <Label htmlFor="login-email">Email or Username</Label>
                   <Input

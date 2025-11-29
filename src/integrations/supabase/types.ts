@@ -71,6 +71,60 @@ export type Database = {
         }
         Relationships: []
       }
+      menu_items: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          ingredients: Json | null
+          is_available: boolean
+          is_popular: boolean
+          name: string
+          nutrition: Json | null
+          price: number
+          region: string
+          telugu: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          ingredients?: Json | null
+          is_available?: boolean
+          is_popular?: boolean
+          name: string
+          nutrition?: Json | null
+          price: number
+          region: string
+          telugu?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          ingredients?: Json | null
+          is_available?: boolean
+          is_popular?: boolean
+          name?: string
+          nutrition?: Json | null
+          price?: number
+          region?: string
+          telugu?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           city: string
