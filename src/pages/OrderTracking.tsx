@@ -31,6 +31,33 @@ const OrderTracking = () => {
 
   useEffect(() => {
     fetchOrder();
+
+    // Subscribe to realtime updates for this order
+    const channel = supabase
+      .channel(`order-${orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${orderId}`
+        },
+        (payload) => {
+          console.log('Order updated:', payload);
+          const updatedData = payload.new as any;
+          setOrder(prev => prev ? {
+            ...prev,
+            ...updatedData,
+            items: typeof updatedData.items === 'string' ? JSON.parse(updatedData.items) : updatedData.items
+          } : null);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [orderId]);
 
   const fetchOrder = async () => {
