@@ -42,7 +42,7 @@ const DishDetails = () => {
       .from('menu_items')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching dish:', error);

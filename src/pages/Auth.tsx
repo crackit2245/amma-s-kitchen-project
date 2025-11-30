@@ -22,17 +22,6 @@ const Auth = () => {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
-    // Handle admin login
-    if (email === 'admin' && password === 'amma123@admin') {
-      // Sign in with special admin account
-      const { error } = await signIn('admin@admin.com', password);
-      setLoading(false);
-      if (!error) {
-        navigate('/admin', { replace: true });
-      }
-      return;
-    }
-
     const { error } = await signIn(email, password);
     setLoading(false);
 
@@ -74,12 +63,12 @@ const Auth = () => {
             <TabsContent value="login">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div>
-                  <Label htmlFor="login-email">Email or Username</Label>
+                  <Label htmlFor="login-email">Email</Label>
                   <Input
                     id="login-email"
                     name="email"
-                    type="text"
-                    placeholder="your@email.com or admin"
+                    type="email"
+                    placeholder="your@email.com"
                     required
                   />
                 </div>
