@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,23 +33,12 @@ const Profile = () => {
     pincode: '',
   });
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth', { state: { from: { pathname: '/profile' } } });
-      return;
-    }
-
-    if (user) {
-      fetchProfile();
-    }
-  }, [user, authLoading]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async (userId: string) => {
     setLoading(true);
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', user?.id)
+      .eq('id', userId)
       .maybeSingle();
 
     if (error) {
@@ -69,10 +58,23 @@ const Profile = () => {
       });
     }
     setLoading(false);
-  };
+  }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (authLoading) return;
+    
+    if (!user) {
+      navigate('/auth', { state: { from: { pathname: '/profile' } } });
+      return;
+    }
+
+    fetchProfile(user.id);
+  }, [user, authLoading, navigate, fetchProfile]);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) return;
+    
     setSaving(true);
 
     const { error } = await supabase
@@ -84,7 +86,7 @@ const Profile = () => {
         city: profile.city,
         pincode: profile.pincode,
       })
-      .eq('id', user?.id);
+      .eq('id', user.id);
 
     if (error) {
       toast({
@@ -99,11 +101,11 @@ const Profile = () => {
       });
     }
     setSaving(false);
-  };
+  }, [user?.id, profile]);
 
-  const handleChange = (field: keyof ProfileData, value: string) => {
+  const handleChange = useCallback((field: keyof ProfileData, value: string) => {
     setProfile((prev) => ({ ...prev, [field]: value }));
-  };
+  }, []);
 
   if (authLoading || loading) {
     return (
@@ -125,16 +127,16 @@ const Profile = () => {
           </TabsList>
 
           <TabsContent value="profile" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5" />
-                  Personal Information
-                </CardTitle>
-                <CardDescription>Update your account details</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    Personal Information
+                  </CardTitle>
+                  <CardDescription>Update your account details</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Full Name</Label>
                     <Input
@@ -170,31 +172,18 @@ const Profile = () => {
                       />
                     </div>
                   </div>
+                </CardContent>
+              </Card>
 
-                  <Button type="submit" disabled={saving} className="w-full">
-                    {saving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      'Save Changes'
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5" />
-                  Delivery Address
-                </CardTitle>
-                <CardDescription>Update your default delivery address</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="w-5 h-5" />
+                    Delivery Address
+                  </CardTitle>
+                  <CardDescription>Update your default delivery address</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="address">Street Address</Label>
                     <Input
@@ -227,20 +216,20 @@ const Profile = () => {
                       />
                     </div>
                   </div>
+                </CardContent>
+              </Card>
 
-                  <Button type="submit" disabled={saving} className="w-full">
-                    {saving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      'Save Address'
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+              <Button type="submit" disabled={saving} className="w-full">
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save All Changes'
+                )}
+              </Button>
+            </form>
           </TabsContent>
 
           <TabsContent value="orders">
