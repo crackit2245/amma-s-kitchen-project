@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/hooks/use-toast';
-import { Package, TrendingUp, DollarSign, Users, MapPin, Plus, Trash2, Edit, Eye, UtensilsCrossed, BarChart3 } from 'lucide-react';
+import { Package, TrendingUp, DollarSign, Users, MapPin, Plus, Trash2, Edit, Eye, UtensilsCrossed, BarChart3, Upload, X, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 
@@ -123,6 +123,9 @@ export default function Admin() {
     delivery_fee: 0,
     estimated_delivery_minutes: 45,
   });
+  
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAdmin) {
@@ -338,6 +341,66 @@ export default function Admin() {
       region: 'both', type: 'veg', image_url: '', ingredients: '',
       is_available: true, is_popular: false,
     });
+    setImagePreview(null);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Error', description: 'Please upload an image file', variant: 'destructive' });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Error', description: 'Image must be less than 5MB', variant: 'destructive' });
+      return;
+    }
+
+    setImageUploading(true);
+
+    try {
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('menu-images')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('menu-images')
+        .getPublicUrl(fileName);
+
+      setNewMenuItem({ ...newMenuItem, image_url: urlData.publicUrl });
+      setImagePreview(urlData.publicUrl);
+      toast({ title: 'Success', description: 'Image uploaded successfully' });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({ title: 'Error', description: error.message || 'Failed to upload image', variant: 'destructive' });
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const removeImage = async () => {
+    if (newMenuItem.image_url && newMenuItem.image_url.includes('menu-images')) {
+      // Extract filename from URL and delete from storage
+      const urlParts = newMenuItem.image_url.split('/');
+      const fileName = urlParts[urlParts.length - 1];
+      
+      await supabase.storage.from('menu-images').remove([fileName]);
+    }
+    
+    setNewMenuItem({ ...newMenuItem, image_url: '' });
+    setImagePreview(null);
   };
 
   const openEditMenuItem = (item: MenuItem) => {
@@ -355,6 +418,7 @@ export default function Admin() {
       is_available: item.is_available,
       is_popular: item.is_popular,
     });
+    setImagePreview(item.image_url || null);
     setIsMenuDialogOpen(true);
   };
 
@@ -701,8 +765,49 @@ export default function Admin() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label>Image URL</Label>
-                          <Input value={newMenuItem.image_url} onChange={(e) => setNewMenuItem({ ...newMenuItem, image_url: e.target.value })} placeholder="/src/assets/dish.jpg" />
+                          <Label>Dish Image</Label>
+                          {(imagePreview || newMenuItem.image_url) ? (
+                            <div className="relative w-full h-40 rounded-lg overflow-hidden border">
+                              <img 
+                                src={imagePreview || newMenuItem.image_url} 
+                                alt="Dish preview" 
+                                className="w-full h-full object-cover"
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-2 right-2 h-8 w-8"
+                                onClick={removeImage}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="relative">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                disabled={imageUploading}
+                              />
+                              <div className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg hover:border-primary transition-colors">
+                                {imageUploading ? (
+                                  <>
+                                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                    <span className="text-sm text-muted-foreground mt-2">Uploading...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="h-8 w-8 text-muted-foreground" />
+                                    <span className="text-sm text-muted-foreground mt-2">Click to upload image</span>
+                                    <span className="text-xs text-muted-foreground">Max 5MB</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label>Ingredients (comma-separated)</Label>
