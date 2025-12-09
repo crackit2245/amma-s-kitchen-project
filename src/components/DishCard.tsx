@@ -24,14 +24,18 @@ const DishCard = ({ dish }: DishCardProps) => {
   useEffect(() => {
     if (user) {
       checkFavorite();
+    } else {
+      setIsFavorite(false);
     }
   }, [user, dish.id]);
 
   const checkFavorite = async () => {
+    if (!user) return;
     const { data } = await supabase
       .from('favorites')
       .select('id')
       .eq('dish_id', dish.id)
+      .eq('user_id', user.id)
       .maybeSingle();
     setIsFavorite(!!data);
   };
