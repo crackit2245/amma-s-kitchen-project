@@ -65,7 +65,10 @@ const Menu = () => {
   }, [searchParams]);
 
   useEffect(() => {
-    fetchMenuItems();
+    const loadMenuItems = async () => {
+      await fetchMenuItems();
+    };
+    loadMenuItems();
   }, []);
 
   const fetchMenuItems = async () => {

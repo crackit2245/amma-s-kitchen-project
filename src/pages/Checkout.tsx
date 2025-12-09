@@ -32,7 +32,7 @@ const Checkout = () => {
     if (user) {
       fetchProfile();
     }
-  }, [user]);
+  }, [user?.id]);
 
   const fetchProfile = async () => {
     const { data } = await supabase

@@ -44,7 +44,10 @@ const Home = () => {
   const [popularDishes, setPopularDishes] = useState<MenuItem[]>([]);
 
   useEffect(() => {
-    fetchPopularDishes();
+    const loadPopularDishes = async () => {
+      await fetchPopularDishes();
+    };
+    loadPopularDishes();
   }, []);
 
   const fetchPopularDishes = async () => {

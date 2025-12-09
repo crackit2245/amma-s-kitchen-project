@@ -47,12 +47,14 @@ const DishDetails = () => {
     if (error) {
       console.error('Error fetching dish:', error);
       setDish(null);
-    } else {
+    } else if (data) {
       setDish({
         ...data,
         ingredients: Array.isArray(data.ingredients) ? (data.ingredients as string[]) : [],
         nutrition: data.nutrition as MenuItem['nutrition'],
       });
+    } else {
+      setDish(null);
     }
     setLoading(false);
   };
