@@ -4,14 +4,36 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Dish } from '@/data/dishes';
 import { ShoppingCart, Heart, Leaf, Drumstick } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+
+// Unified dish type that works with both static data and database
+export interface DishItem {
+  id: string;
+  name: string;
+  telugu?: string | null;
+  description?: string | null;
+  price: number;
+  category: string;
+  region: string;
+  type: string;
+  image?: string;
+  image_url?: string | null;
+  popular?: boolean;
+  is_popular?: boolean;
+  ingredients?: string[];
+  nutrition?: {
+    calories: number;
+    protein: string;
+    carbs: string;
+  } | null;
+  is_available?: boolean;
+}
 
 interface DishCardProps {
-  dish: Dish;
+  dish: DishItem;
 }
 
 const DishCard = ({ dish }: DishCardProps) => {
@@ -21,15 +43,12 @@ const DishCard = ({ dish }: DishCardProps) => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      checkFavorite();
-    } else {
-      setIsFavorite(false);
-    }
-  }, [user, dish.id]);
+  // Get the image URL (handle both formats)
+  const imageUrl = dish.image_url || dish.image || '/placeholder.svg';
+  // Get popular status (handle both formats)
+  const isPopular = dish.is_popular || dish.popular || false;
 
-  const checkFavorite = async () => {
+  const checkFavorite = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from('favorites')
@@ -38,7 +57,15 @@ const DishCard = ({ dish }: DishCardProps) => {
       .eq('user_id', user.id)
       .maybeSingle();
     setIsFavorite(!!data);
-  };
+  }, [user, dish.id]);
+
+  useEffect(() => {
+    if (user) {
+      checkFavorite();
+    } else {
+      setIsFavorite(false);
+    }
+  }, [user, dish.id, checkFavorite]);
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -52,7 +79,8 @@ const DishCard = ({ dish }: DishCardProps) => {
       await supabase
         .from('favorites')
         .delete()
-        .eq('dish_id', dish.id);
+        .eq('dish_id', dish.id)
+        .eq('user_id', user.id);
       setIsFavorite(false);
       toast({
         title: "Removed from favorites",
@@ -64,7 +92,7 @@ const DishCard = ({ dish }: DishCardProps) => {
         .insert([{ user_id: user.id, dish_id: dish.id }]);
       setIsFavorite(true);
       toast({
-        title: "Added to favorites! ❤️",
+        title: "Added to favorites!",
         description: `${dish.name} added to your favorites`,
       });
     }
@@ -76,7 +104,7 @@ const DishCard = ({ dish }: DishCardProps) => {
       <Link to={`/dish/${dish.id}`}>
         <div className="aspect-square overflow-hidden bg-muted relative">
           <img
-            src={dish.image}
+            src={imageUrl}
             alt={dish.name}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
           />
@@ -89,7 +117,7 @@ const DishCard = ({ dish }: DishCardProps) => {
           >
             <Heart className={`h-5 w-5 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
           </Button>
-          {dish.popular && (
+          {isPopular && (
             <Badge className="absolute top-3 left-3 bg-accent text-accent-foreground">
               Popular
             </Badge>
@@ -103,7 +131,7 @@ const DishCard = ({ dish }: DishCardProps) => {
               <h3 className="font-semibold text-lg text-foreground hover:text-primary transition-colors line-clamp-1">
                 {dish.name}
               </h3>
-              <p className="text-sm text-muted-foreground">{dish.telugu}</p>
+              {dish.telugu && <p className="text-sm text-muted-foreground">{dish.telugu}</p>}
             </Link>
           </div>
           <Badge variant={dish.type === 'veg' ? 'secondary' : 'destructive'} className="shrink-0">

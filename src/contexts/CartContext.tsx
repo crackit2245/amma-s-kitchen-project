@@ -1,14 +1,36 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Dish } from '@/data/dishes';
 import { toast } from '@/hooks/use-toast';
 
-interface CartItem extends Dish {
+// Unified cart item type that works with both static data and database items
+export interface CartDish {
+  id: string;
+  name: string;
+  telugu?: string | null;
+  description?: string | null;
+  price: number;
+  category: string;
+  region: string;
+  type: string;
+  image?: string;
+  image_url?: string | null;
+  popular?: boolean;
+  is_popular?: boolean;
+  ingredients?: string[];
+  nutrition?: {
+    calories: number;
+    protein: string;
+    carbs: string;
+  } | null;
+  is_available?: boolean;
+}
+
+interface CartItem extends CartDish {
   quantity: number;
 }
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (dish: Dish) => void;
+  addToCart: (dish: CartDish) => void;
   removeFromCart: (dishId: string) => void;
   updateQuantity: (dishId: string, quantity: number) => void;
   clearCart: () => void;
@@ -40,7 +62,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [cart]);
 
-  const addToCart = (dish: Dish) => {
+  const addToCart = (dish: CartDish) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === dish.id);
       if (existingItem) {

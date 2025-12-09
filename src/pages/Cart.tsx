@@ -38,13 +38,13 @@ const Cart = () => {
                 <CardContent className="p-4">
                   <div className="flex gap-4">
                     <img
-                      src={item.image}
+                      src={item.image_url || item.image || '/placeholder.svg'}
                       alt={item.name}
                       className="w-24 h-24 object-cover rounded-lg"
                     />
                     <div className="flex-1">
                       <h3 className="font-semibold text-lg text-foreground">{item.name}</h3>
-                      <p className="text-sm text-muted-foreground mb-2">{item.telugu}</p>
+                      {item.telugu && <p className="text-sm text-muted-foreground mb-2">{item.telugu}</p>}
                       <p className="text-lg font-semibold text-primary">₹{item.price}</p>
                     </div>
                     <div className="flex flex-col items-end justify-between">
